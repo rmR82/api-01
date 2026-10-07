@@ -1,0 +1,700 @@
+API
+Sobre conceituação:
+*REST (Representational State Transfer) é um estilo de arquitetura, um conjunto de princípios proposto por Roy Fielding em 2000 para projetar serviços web. Não é um protocolo nem uma tecnologia, e sim um conjunto de regras de design.
+*RESTful é o adjetivo: uma API é chamada de RESTful quando segue esses princípios. Ou seja, "REST" é o conceito e "RESTful" é a API que o implementa. Na prática, muita gente usa os dois termos como sinônimos.
+
+Os princípios principais são:
+*Cliente-servidor: front e back são separados e se comunicam por requisições.
+*Sem estado (stateless): cada requisição carrega tudo que o servidor precisa; ele não guarda "sessão" do cliente entre chamadas.
+*Recursos identificados por URLs: o que você manipula são "coisas" (tarefas, usuários, produtos), como /tarefas ou /tarefas/5.
+*Uso correto dos métodos HTTP:
+GET: buscar
+POST: criar
+PUT/PATCH: atualizar
+DELETE: excluir
+*Representações padronizadas: normalmente JSON.
+*Códigos de status adequados: 200 OK, 201 criado, 404 não encontrado, 400 requisição inválida, etc.
+*Interface uniforme e cacheabilidade: as respostas indicam se podem ou não ser guardadas em cache.
+
+-Um exemplo não RESTful seria algo como POST /criarTarefa ou GET /excluirTarefa?id=5, em que o verbo vai na URL em vez de usar o método HTTP.
+-Existem outros estilos de API, como SOAP, GraphQL e gRPC, e esses sim são alternativas diferentes ao REST.
+
+Consumir uma API é enviar uma requisição HTTP e ler a resposta. Toda requisição tem:
+
+E toda resposta traz:
+-Status code: 200 deu certo, 201 criado, 400 você errou algo, 401 sem autorização, 404 não existe, 500 erro do servidor.
+-Headers e body, quase sempre em JSON, que em Python vira dicionário/lista.
+Uma URL como
+	https://api.exemplo.com/v1/usuarios/5?ativo=true
+se lê assim:
+	https 			(protocolo)
+	api.exemplo.com 	(servidor)
+	/v1/usuarios/5 		(recurso)
+	?ativo=true 		(filtro)
+
+
+
+
+
+
+
+
+
+
+Criar um novo projeto
+-no Terminal:
+	pip install requests
+Essa é a biblioteca que faz as requisições HTTTP.
+-criar um arquivo principal chamado:
+	teste_requests
+-testar o requests
+Nesse arquivo, colocar o conteúdo
+	import requests
+	print("requests instalado! Versão:", requests.__version__)
+e rodar, a resposta deve ser algo como:
+	requests instalado! Versão: 2.34.2
+*Primeira chamada de teste.
+É usada a JSONPlaceholder, uma API pública e gratuita de testes e treinos.
+Apagar o conteúdo do arquivo teste_request.py e colocar:
+import requests
+
+url = "https://jsonplaceholder.typicode.com/posts/1"
+
+resposta = requests.get(url)
+
+print("Status:", resposta.status_code)
+print("Corpo:", resposta.text)
+O que cada linha faz
+-url = "...": o endereço do recurso. Aqui, o post de número 1.
+-requests.get(url): envia uma requisição do tipo GET ("me dê esse recurso") e guarda a resposta na variável resposta.
+-resposta.status_code: o número que diz se deu certo. 200 significa sucesso.
+-resposta.text: o corpo da resposta como texto puro. Ele parece um dicionário do Python, mas ainda é só uma string.
+Rodar o programa.
+O resultado deve ser:
+Status: 200
+Corpo: {
+  "userId": 1,
+  "id": 1,
+  "title": "sunt aut facere repellat provident occaecati excepturi optio reprehenderit",
+  "body": "quia et suscipit\nsuscipit recusandae consequuntur expedita et cum\nreprehenderit molestiae ut ut quas totam\nnostrum rerum est autem sunt rem eveniet architecto"
+}
+Teste de POST inexistente: trocar o
+	/posts/1
+por
+	/posts/9999
+o resultado é:
+Status: 404
+Corpo: {}
+*Para modificar a resposta do JSON para um dicionário Python:
+-criar um arquivo chamado:
+etapa1.py
+com conteúdo:
+import requests
+url = "https://jsonplaceholder.typicode.com/posts/1"
+resposta = requests.get(url)
+dados = resposta.json()
+print("Tipo de dados:", type(dados))
+print("Título:", dados["title"])
+print("ID do usuário:", dados["userId"])
+rodar o programa, o resultado deve aparecer como:
+Tipo de dados: <class 'dict'>
+Título: sunt aut facere repellat provident occaecati excepturi optio reprehenderit
+ID do usuário: 1
+
+O que mudou em relação à etapa anterior
+-resposta.json() pega o texto JSON e devolve um dicionário (dict)
+-a partir daí, é Python normal: dados["title"] acessa o valor da chave title, exatamente como em qualquer dicionário
+-o type(dados) serve só para confirmar que agora é um dict, e não mais uma string
+Se a URL/post for usada sem número no final, ela retorna todos os 100 posts.
+Para o teste, criar um arquivo chamado:
+	etapa2_lista.py
+com o conteúdo:
+import requests
+resposta = requests.get("https://jsonplaceholder.typicode.com/posts")
+posts = resposta.json()
+print("Tipo:", type(posts))
+print("Quantidade de posts:", len(posts))
+for post in posts[:5]:
+    print(post["id"], "-", post["title"])
+o resultado esperado é:
+Tipo: <class 'list'>
+Quantidade de posts: 100
+1 - sunt aut facere repellat provident occaecati excepturi optio reprehenderit
+2 - qui est esse
+3 - ea molestias quasi exercitationem repellat qui ipsa sit aut
+4 - eum et est occaecati
+5 - nesciunt quas odio
+O arquivo .json() retornou uma lista de dicionários.
+O posts[:5] localizou apenas os 5 primeiros itens, não todos os 100. O loop for percorre essa lista de 5 itens.
+*Para efetuar filtros na busca, retornando apenas o que é interessante.
+Se faz o uso de "query params", filtros usados no URL após o "?".
+A linha abaixo solicita apenas posts do usuário 1:
+	https://jsonplaceholder.typicode.com/posts?userId=1
+Tudo que vem depois do "?" é um filtro no formato nome=valor.
+Com o uso de mais de um filtro, eles são separados por &, como em ?userId=1&id=3.
+-criar arquivo:
+	etapa3.py
+com o conteúdo:
+import requests
+url = "https://jsonplaceholder.typicode.com/posts"
+filtros = {"userId": 1}
+resposta = requests.get(url, params=filtros)
+print("URL final:", resposta.url)
+print("Status:", resposta.status_code)
+posts = resposta.json()
+print("Quantidade de posts do usuário 1:", len(posts))
+for post in posts:
+    print(post["id"], "-", post["title"])
+rodar o programa. O resultado esperado seria:
+URL final: https://jsonplaceholder.typicode.com/posts?userId=1
+Status: 200
+Quantidade de posts do usuário 1: 10
+1 - sunt aut facere repellat provident occaecati excepturi optio reprehenderit
+2 - qui est esse
+3 - ea molestias quasi exercitationem repellat qui ipsa sit aut
+4 - eum et est occaecati
+5 - nesciunt quas odio
+6 - dolorem eum magni eos aperiam quia
+7 - magnam facilis autem
+8 - dolorem dolore est ipsam
+9 - nesciunt iure omnis dolorem tempora et accusantium
+10 - optio molestias id quia eum
+Analisando o código:
+filtros = {"userId": 1}: um dicionário Python com os filtros desejados. A chave é o nome do filtro e o valor é o que o usuário quer.
+requests.get(url, params=filtros): o requests monta o ?userId=1 para o usuário e cuida de detalhes como caracteres especiais e espaços.
+resposta.url: mostra a URL final que foi realmente enviada.
+O uso do params= deixa o código mais limpo, e deixa mais fácil de trocar os valores.
+
+A)Enviar dados com POST
+Um POST leva um body (corpo), onde vão os dados que o usuário quer enviar, normalmente em formato JSON.
+Criar um arquivo:
+	etapa4.py
+com o conteúdo:
+import requests
+url = "https://jsonplaceholder.typicode.com/posts"
+novo_post = {
+    "title": "Meu primeiro post",
+    "body": "Estou aprendendo a consumir APIs com Python.",
+    "userId": 1
+}
+resposta = requests.post(url, json=novo_post)
+print("Status:", resposta.status_code)
+print("Resposta:", resposta.json())
+O resultado esperado é:
+Status: 201
+Resposta: {'title': 'Meu primeiro post', 'body': 'Estou aprendendo a consumir APIs com Python.', 'userId': 1, 'id': 101}
+Detalhe 1: O JSONPlaceholder é uma API de teste, portanto, ela não guarda dados novos de verdade. Se for feita uma tentativa de retornar o /posts/101 o resultado será 404, pois não haverá nada ali.
+Detalhe 2:  na linha
+	resposta = requests.post(url, json=novo_post)
+Como a API trabalha com JSON, utilisa json=. Outros tipos de API que utilizam data= enviam os dados no formato de formulário, algo diferente do visto aqui.
+Analisando o código:
+novo_post = {...}
+	um dicionário Python com os dados que se deseja enviar.
+requests.post(url, json=novo_post)
+	envia uma requisição POST. O parâmetro json= faz duas coisas: converte o dicionário para JSON e avisa ao servidor que o conteúdo é JSON (o header Content-Type).
+Status 201
+	significa "Created" (criado). É o código esperado quando um POST cria algo com sucesso. Lembre que o 200 é para "deu certo" em geral, e o 201 é específico para "criei um novo recurso".
+'id': 101
+	o servidor devolve o recurso criado já com o id que ele mesmo gerou. Como já existiam 100 posts, o novo recebeu o 101. (lembrar do AUTO_INCREMENT)
+
+B)Atualizar com PUT
+Comando utilizado para trocar o conteúdo inteiro. No exemplo abaixo, title e body são modificados. Se algum deles não fosse mencionado, seria apagado na versão final. O PUT se refere a todos os campos.
+Criar um arquivo
+	etapa5.py
+com o conteúdo:
+import requests
+url = "https://jsonplaceholder.typicode.com/posts/1"
+post_atualizado = {
+    "id": 1,
+    "title": "Título alterado",
+    "body": "Conteúdo alterado com PUT.",
+    "userId": 1
+}
+resposta = requests.put(url, json=post_atualizado)
+print("Status:", resposta.status_code)
+print("Resposta:", resposta.json())
+rodar o programa, o resultado esperado seria:
+
+Status: 200
+Resposta: {'id': 1, 'title': 'Título alterado', 'body': 'Conteúdo alterado com PUT.', 'userId': 1}
+Analisando o código:
+url = ".../posts/1"
+	o /1 no final indica qual post será alterado.
+post_atualizado
+	o post completo, com todos os campos, já com os novos valores.
+requests.put(url, json=post_atualizado)
+	envia a requisição PUT. O json= funciona igual ao do POST.
+Status 200
+	para atualizações, o esperado é 200 (OK)
+	algumas APIs usam 204 (sem conteúdo), quando não devolvem nada no corpo
+
+C)Atualização parcial com PATCH
+O comando PATCH permite alterar apenas os campos desejados, portanto, são enviados apenas os campos que se deseja alterar.
+Deve-se verificar se a API em questão aceita o uso do comando PATCH, pois, embora sendo muito usado na atualidade, não é suportado por todas as APIs.
+Criar o arquivo:
+	etapa6.py
+com o conteúdo:
+import requests
+url = "https://jsonplaceholder.typicode.com/posts/1"
+alteracao = {
+    "title": "Só o título mudou"
+}
+resposta = requests.patch(url, json=alteracao)
+print("Status:", resposta.status_code)
+print("Resposta:", resposta.json())
+o resultado esperado é:
+Status: 200
+Resposta: {'userId': 1, 'id': 1, 'title': 'Só o título mudou', 'body': 'quia et suscipit\nsuscipit recusandae consequuntur expedita et cum\nreprehenderit molestiae ut ut quas totam\nnostrum rerum est autem sunt rem eveniet architecto'}
+Analisando o código:
+alteracao = {"title": ...}
+	um dicionário com só o campo que será alterado.
+requests.patch(url, json=alteracao)
+	envia a requisição PATCH para o post 1.
+Status 200
+	sucesso, igual ao PUT.
+
+D)Exclusão com DELETE
+Ao contrário do PUT e PATCH, não é necessário enviar o body, apenas mencionar qual id deseja-se apagar.
+Criar o arquivo:
+	etapa7.py
+com o conteúdo:
+import requests
+url = "https://jsonplaceholder.typicode.com/posts/1"
+resposta = requests.delete(url)
+print("Status:", resposta.status_code)
+print("Resposta:", resposta.json())
+o resultado é:
+Status: 200
+Resposta: {}
+Analisando o código:
+url = ".../posts/1"
+	o /1 indica qual post será excluído.
+requests.delete(url)
+	envia a requisição DELETE. Repare que não há json=, porque não há nada a enviar.
+Status 200
+	sucesso.
+{}
+	a resposta veio com um dicionário vazio, o que é comum em exclusões, já que não há mais o que devolver.
+Respostas comuns:
+200
+	OK, excluído (pode vir com uma mensagem no corpo).
+204
+	Excluído, sem conteúdo no corpo (muito comum).
+	Atenção ao 204: como o corpo vem vazio, chamar resposta.json() nesse caso gera um erro. Em APIs reais, vale conferir
+o status antes de tentar ler o JSON.
+404
+	O recurso não existe (talvez já tenha sido apagado).
+
+Tratamento de respostas com erro
+Criar arquivo:
+	etapa9.py
+com o conteúdo:
+import requests
+url = "https://jsonplaceholder.typicode.com/posts/9999"
+resposta = requests.get(url)
+if resposta.status_code == 200:
+    print("Sucesso:", resposta.json())
+else:
+    print("Algo deu errado. Status:", resposta.status_code)
+Isso é uma tentativa de GET do posts/9999, resultado esperado, como o post 9999 não existe:
+	Algo deu errado. Status: 404
+Outra possibilidade:
+criar o arquivo:
+	etapa9.py
+com o conteúdo:
+import requests
+url = "https://jsonplaceholder.typicode.com/posts/9999"
+try:
+    resposta = requests.get(url)
+    resposta.raise_for_status()
+    print("Sucesso:", resposta.json())
+except requests.exceptions.HTTPError as erro:
+    print("Erro HTTP:", erro)
+resultado esperado:
+	Erro HTTP: 404 Client Error: Not Found for url: https://jsonplaceholder.typicode.com/posts/9999
+Analisando o código:
+try
+	tenta executar o bloco. Se algo lançar uma exceção, o Python pula para o except em vez de quebrar o programa.
+resposta.raise_for_status()
+	para 4xx e 5xx, lança um HTTPError. Para 2xx, passa em silêncio.
+except requests.exceptions.HTTPError as erro
+	captura especificamente esse tipo de exceção e guarda a mensagem em erro.
+A mensagem já informa o status, o nome do erro (Not Found) e a URL, o que ajuda muito na hora de depurar.
+Grupos de status:
+
+
+Erros de conexão e timeout
+São erros em que a API não conesegue responder. Pode ser que a conexão com a internet caiu, o endereço esteja errado ou o servidor esteja demorando.
+Criar arquivo:
+	etapa10.py
+com o conteúdo:
+import requests
+url = "https://jsonplaceholder.typicode.com/posts/1"
+try:
+    resposta = requests.get(url, timeout=5)
+    resposta.raise_for_status()
+    print("Sucesso:", resposta.json())
+except requests.exceptions.Timeout:
+    print("A API demorou demais para responder.")
+except requests.exceptions.ConnectionError:
+    print("Não foi possível conectar. Verifique a internet ou o endereço.")
+except requests.exceptions.HTTPError as erro:
+    print("Erro HTTP:", erro)
+except requests.exceptions.RequestException as erro:
+    print("Erro inesperado na requisição:", erro)
+como não há problemas, o resultado esperado é que está tudo ok.
+Analisando o código:
+timeout=5
+	se a API não responder em 5 segundos, o requests desiste e lança uma exceção.
+Timeout
+	a API demorou demais.
+ConnectionError
+	não foi possível conectar (sem internet, domínio que não existe, servidor fora do ar).
+HTTPError
+	o erro da etapa anterior, vindo do raise_for_status().
+RequestException
+	a "mãe" de todas as exceções do requests. Funciona como uma rede de segurança para qualquer erro que as
+anteriores não pegaram.
+Detalhe: a ordem dos except importa. O Python testa os except de cima para baixo e usa o primeiro que combinar. Por isso a regra é colocar os erros específicos primeiro e o geral (RequestException) por último. Se o programador colocasse o RequestException no começo, ele capturaria tudo e os outros nunca seriam usados.
+*Forçar erros para ver as respostas:
+Timeout
+	trocar timeout=5 por timeout=0.001. É um tempo impossível de cumprir, então deve aparecer A API demorou demais para responder.
+Erro de conexão
+	trocar a URL por https://api-que-nao-existe-123.com/posts. Esse domínio não existe, então deve aparecer a mensagem de conexão.
+Erro HTTP
+	usar https://jsonplaceholder.typicode.com/posts/9999. Deve cair no Erro HTTP: 404 ..., como já visto anteriormente.
+
+Headers e Autenticação
+A)Headers
+*informações extras que viajam junto com a requisição e com a resposta, sem fazer parte dos dados em si
+*O que são headers
+Toda requisição HTTP tem duas partes:
+-O conteúdo em si: o que você quer pedir ou enviar (a URL, o body com os dados).
+-Os metadados: informações sobre a requisição, que ajudam o servidor a entender como tratá-la. Esses são os headers.
+Uma analogia muito usada é o de uma arta de correio. Dentro do envelope está o conteúdo. No envelope da carta estão as informações de envio, recebimento e sobre o conteúdo, isso é o header.
+Na prática, um header é só um par nome: valor, que no Python vira um dicionário:
+	{"Accept": "application/json"}
+Em geral, o programador não precisa mexer em nada. O requests preenche as informações básicas.
+Porém, existem situações em que é necessário mexer nisso:
+a)autenticação: na maioria das APIs, o uso não é livre. O usuário se cadastra e recebe uma chave/token e utiliza isso para cada requisição. Essa prova de autenticidade vai no header.
+	headers = {"Authorization": "Bearer seu_token_aqui"}
+	requests.get(url, headers=headers)
+Sem esse header, a API responde 401 (não autorizado).
+b)informar o formato de envio/recebimento de dados
+	Content-Type: application/json 	avisa que o body que o usuário está mandando é JSON
+	Accept: application/json 		pede que a resposta venha em JSON.
+Com json= o requests já cuida do Content-Type, mas algumas APIs exigem o Accept ou formatos específicos (por exemplo, versões da API), e aí o usuário define na mão.
+c)identificar o programa
+Algumas APIs, como a do GitHub, exigem um User-Agent identificando quem está chamando, e bloqueiam requisições sem ele. Outras bloqueiam o python-requests padrão por suspeitarem de automação.
+d)ler informações que a API devolve nos headers da resposta
+Os headers da resposta também carregam dados úteis, como:
+-quantas requisições que o usuário ainda pode fazer (limite de uso).
+-o link para a próxima página de resultados, em APIs com paginação.
+-o tipo de conteúdo recebido.
+Headers: exemplos:
+	Content-Type	Diz o formato do que está sendo enviado (ex.: application/json)
+	Accept		Diz em que formato o usuário quer receber a resposta
+	User-Agent	Identifica quem está fazendo a requisição
+	Authorization	Leva as credenciais de acesso (veremos na próxima etapa)
+criar arquivo:
+	etapa11.py
+com o conteúdo:
+import requests
+resposta = requests.get("https://httpbin.org/headers", timeout=5)
+print("Status:", resposta.status_code)
+print(resposta.json())
+Isso utiliza o httpbin.org que é um serviço de testes que devolve o que reebeu, serve para ver o que foi enviado.
+O resultado esperado:
+Status: 200
+{'headers': {'Accept': '*/*', 'Accept-Encoding': 'gzip, deflate, zstd', 'Host': 'httpbin.org', 'User-Agent': 'python-requests/2.34.2', 'X-Amzn-Trace-Id': 'Root=1-6ac04c46-1eb48e6375d936ef16be299e'}}
+User-Agent	mesmo sem ser configurado
+requests		já identifica o python-requests
+*Para enviar headers, usando o parâmetro headers=  que vai receber um dicionário.
+Mudar o conteúdo do arquivo pra:
+import requests
+url = "https://httpbin.org/headers"
+meus_headers = {
+    "Accept": "application/json",
+    "User-Agent": "meu-estudo-de-api/1.0",
+    "X-Meu-Header": "teste123"
+}
+resposta = requests.get(url, headers=meus_headers, timeout=5)
+print("Status:", resposta.status_code)
+print(resposta.json()["headers"])
+o resultado esperado é:
+Status: 200
+{'Accept': 'application/json', 'Accept-Encoding': 'gzip, deflate, zstd', 'Host': 'httpbin.org', 'User-Agent': 'meu-estudo-de-api/1.0', 'X-Amzn-Trace-Id': 'Root=1-6ac04cff-0ad7efc134d1eb3a63ef92cc', 'X-Meu-Header': 'teste123'}
+o User-Agent mudou para meu-estudo-de-api/1.0
+Headers que começam com X- são personalizados.
+*Para ler os headers da resposta
+Adicionar as seguintes linhas ao fim do arquivo:
+	print("Content-Type da resposta:", resposta.headers["Content-Type"])
+	print("Todos os headers da resposta:", dict(resposta.headers))
+o resultado esperado é:
+Status: 200
+{'Accept': 'application/json', 'Accept-Encoding': 'gzip, deflate, zstd', 'Host': 'httpbin.org', 'User-Agent': 'meu-estudo-de-api/1.0', 'X-Amzn-Trace-Id': 'Root=1-6ac04d82-38a3f0186951a5fc1070dd65', 'X-Meu-Header': 'teste123'}
+Content-Type da resposta: application/json
+Todos os headers da resposta: {'Date': 'Sat, 03 Oct 2026 00:34:10 GMT', 'Content-Type': 'application/json', 'Content-Length': '276', 'Connection': 'keep-alive', 'Server': 'gunicorn/19.9.0', 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Credentials': 'true'}
+O que cada parte faz
+headers=meus_headers
+	o requests coloca esses valores no cabeçalho da requisição. O que o usuário não definir continua sendo preenchido
+automaticamente.
+resposta.json()["headers"]
+	o httpbin devolve os headers que recebeu dentro da chave headers, e estamos acessando só essa parte.
+resposta.headers
+	os headers da resposta, que funcionam como um dicionário (e não diferenciam maiúsculas de minúsculas na hora de
+consultar).
+
+B)Autenticação com token
+*Os dois conceitos
+-Autenticação: provar quem o usuário é. Normalmente o usuário se cadastra no serviço e recebe um token (ou chave), uma sequência de caracteres que funciona como uma senha para programas.
+-Bearer token: o formato mais usado. O header fica assim:
+	Authorization: Bearer <seu_token>.
+   A palavra Bearer significa "portador": quem carrega esse token tem acesso.
+Será utilizado o endereço
+	https://httpbin.org/bearer
+que só responde com sucesso se a requisição trouxer um token. Ele aceita qualquer token, então serve para treino sem precisar de cadastro.
+Criar o arquivo:
+	etapa12.py
+com o conteúdo:
+	import requests
+	url = "https://httpbin.org/bearer"
+	resposta = requests.get(url, timeout=5)
+	print("Status:", resposta.status_code)
+resultado esperado:
+	Status: 201
+O 401 significa "não autorizado": a API exige credenciais e não foi enviada nenhuma. Esse é o erro que mais se encontra no começo ao usar APIs reais.
+*Para enviar o token
+Alterar o conteúdo do arquivo para:
+import requests
+url = "https://httpbin.org/bearer"
+token = "meu_token_de_teste_123"
+headers = {
+    "Authorization": f"Bearer {token}"
+}
+resposta = requests.get(url, headers=headers, timeout=5)
+print("Status:", resposta.status_code)
+print("Resposta:", resposta.json())
+resultado:
+	Status: 200
+	Resposta: {'authenticated': True, 'token': 'meu_token_de_teste_123'}
+O retorno mostra que a API aceitou a requisição e devolveu authenticated: True  justo ao token recebido.
+Analisando:
+token = "..."
+	guardamos o token em uma variável, para não repetir o valor no código.
+f"Bearer {token}"
+	uma f-string que monta o texto Bearer meu_token_de_teste_123. É importante manter o espaço depois de Bearer.
+headers={"Authorization": ...}
+	envia o header de autorização junto com a requisição, exatamente como vimos na etapa anterior.
+*tipos de autenticação, variando com a API
+	Bearer token			{"Authorization": "Bearer TOKEN"}
+	API key em header personalizado	{"X-API-Key": "SUA_CHAVE"}
+	API key na URL			params={"api_key": "SUA_CHAVE"}
+Apenas altera onde a autenticação vai.
+*Guardar token com segurança
+O token não pode ficar contido no código. A regra é: credenciais nunca ficam dentro do código. Elas ficam em um arquivo separado.
+A solução: arquivo .env + python-dotenv
+O .env é um arquivo de texto simples que guarda configurações e segredos. A biblioteca python-dotenv lê esse arquivo e disponibiliza os valores para o programa.
+-no Terminal:
+	pip install python-dotenv
+criar arquivo:
+	 .env
+o conteúdo:
+	API_TOKEN=meu_token_de_teste_123
+criar arquivo:
+	.gitignore
+esse arquivo diz ao Git o que não deve ser enviado.
+conteúdo:
+	.env
+	.venv/
+	__pycache__/
+criar arquivo:
+	etapa13.py
+com o conteúdo:
+import os
+import requests
+from dotenv import load_dotenv
+load_dotenv()
+token = os.getenv("API_TOKEN")
+if token is None:
+    print("Token não encontrado. Verifique o arquivo .env")
+else:
+    url = "https://httpbin.org/bearer"
+    headers = {"Authorization": f"Bearer {token}"}
+    resposta = requests.get(url, headers=headers, timeout=5)
+    print("Status:", resposta.status_code)
+    print("Resposta:", resposta.json())
+rodar o programa, o resultado esperado é:
+Status: 200
+Resposta: {'authenticated': True, 'token': 'meu_token_de_teste_123'}
+O resultado é o mesmo de antes, porém, o token não aparece no código.
+Analisando:
+load_dotenv()
+	lê o arquivo .env e carrega o que está nele como variáveis de ambiente do programa.
+os.getenv("API_TOKEN")
+	busca o valor da variável API_TOKEN. Se ela não existir, devolve None em vez de dar erro.
+if token is None
+	protege o programa. Sem esse teste, o código enviaria Bearer None para a API e você receberia um 401 difícil de
+entender.
+
+Paginação
+A forma como as APIs entregam grandes quantidades de dados aos poucos.
+Imagine uma API com 2 milhões de posts. Se o usuário pedisse /posts, ela teria que enviar tudo de uma vez, o que seria lento e pesado. Por isso as APIs entregam os dados em pedaços, chamados de páginas. O usuário pede a página 1, depois a 2, e assim por diante, até acabar.
+A JSONPlaceholder aceita dois parâmetros para isso:
+	 _page (qual página)
+	 _limit (quantos itens por página)
+criar arquivo:
+	etapa14.py
+com o conteúdo:
+import requests
+url = "https://jsonplaceholder.typicode.com/posts"
+params = {"_page": 1, "_limit": 10}
+resposta = requests.get(url, params=params, timeout=5)
+resposta.raise_for_status()
+posts = resposta.json()
+print("URL final:", resposta.url)
+print("Quantidade nesta página:", len(posts))
+print("IDs:", [post["id"] for post in posts])
+print("Total de posts na API:", resposta.headers.get("X-Total-Count"))
+resultado esperado:
+URL final: https://jsonplaceholder.typicode.com/posts?_page=1&_limit=10
+Quantidade nesta página: 10
+IDs: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+Total de posts na API: 100
+Agora vieram só 10 posts. A linha do total mostra uma coisa da etapa 11 em ação: esta API informa quantos itens existem no total através de um header da resposta (X-Total-Count). Usamos .get() porque, se o header não existir, ele devolve None em vez de dar erro.
+Exemplo: alterar o "_page": 1 por "_page": 2  o resultado é:
+URL final: https://jsonplaceholder.typicode.com/posts?_page=2&_limit=10
+Quantidade nesta página: 10
+IDs: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
+Total de posts na API: 100
+Alterar o conteúdo do arquivo por:
+import requests
+url = "https://jsonplaceholder.typicode.com/posts"
+todos = []
+pagina = 1
+while True:
+    params = {"_page": pagina, "_limit": 10}
+    resposta = requests.get(url, params=params, timeout=5)
+    resposta.raise_for_status()
+    itens = resposta.json()
+    if not itens:
+        break
+    todos.extend(itens)
+    print(f"Página {pagina}: {len(itens)} itens")
+    pagina += 1
+print("Total coletado:", len(todos))
+resultado esperado:
+Página 1: 10 itens
+Página 2: 10 itens
+Página 3: 10 itens
+Página 4: 10 itens
+Página 5: 10 itens
+Página 6: 10 itens
+Página 7: 10 itens
+Página 8: 10 itens
+Página 9: 10 itens
+Página 10: 10 itens
+Total coletado: 100
+Analisando o código:
+todos = []
+	a lista que vai acumular os itens de todas as páginas.
+while True:
+	um laço que repete até alguém mandar parar.
+if not itens: break
+	quando a API devolve uma lista vazia, não há mais páginas, e o break encerra o laço. Aqui a página 11 vem vazia, então
+o programa para.
+todos.extend(itens)
+	adiciona todos os itens da página na lista geral. É diferente de append, que adicionaria a lista inteira como um único
+elemento.
+pagina += 1
+	avança para a próxima página.
+
+
+
+Funções
+Criar arquivo:
+	cliente_api.py
+conteúdo:
+import requests
+BASE_URL = "https://jsonplaceholder.typicode.com"
+TIMEOUT = 5
+class ErroDeApi(Exception):
+    """Erro ao se comunicar com a API."""
+def requisitar(metodo, caminho, **kwargs):
+    url = f"{BASE_URL}{caminho}"
+    try:
+        resposta = requests.request(metodo, url, timeout=TIMEOUT, **kwargs)
+        resposta.raise_for_status()
+    except requests.exceptions.Timeout:
+        raise ErroDeApi("A API demorou demais para responder.")
+    except requests.exceptions.ConnectionError:
+        raise ErroDeApi("Não foi possível conectar à API.")
+    except requests.exceptions.HTTPError as erro:
+        raise ErroDeApi(f"A API respondeu com erro: {erro}")
+    except requests.exceptions.RequestException as erro:
+        raise ErroDeApi(f"Erro inesperado: {erro}")
+    if resposta.status_code == 204:
+        return None
+    return resposta.json()
+"""
+Essa é a função central. Toda chamada à API vai passar por ela, então o timeout e o tratamento de erros ficam escritos uma única vez.
+"""
+def buscar_post(post_id):
+    return requisitar("GET", f"/posts/{post_id}")
+def listar_posts(user_id=None):
+    params = {}
+    if user_id is not None:
+        params["userId"] = user_id
+    return requisitar("GET", "/posts", params=params)
+def criar_post(titulo, corpo, user_id):
+    dados = {"title": titulo, "body": corpo, "userId": user_id}
+    return requisitar("POST", "/posts", json=dados)
+def listar_todos_paginado(por_pagina=10):
+    todos = []
+    pagina = 1
+    while True:
+        params = {"_page": pagina, "_limit": por_pagina}
+        itens = requisitar("GET", "/posts", params=params)
+        if not itens:
+            break
+        todos.extend(itens)
+        pagina += 1
+    return todos
+if __name__ == "__main__":
+    try:
+        post = buscar_post(1)
+        print("Título:", post["title"])
+        posts_do_usuario = listar_posts(user_id=2)
+        print("Posts do usuário 2:", len(posts_do_usuario))
+        novo = criar_post("Meu post", "Conteúdo do post", 1)
+        print("Criado com id:", novo["id"])
+        todos = listar_todos_paginado()
+        print("Total de posts:", len(todos))
+        buscar_post(9999)
+    except ErroDeApi as erro:
+        print("Erro:", erro)
+
+Analisando o código:
+BASE_URL e TIMEOUT
+	constantes (em maiúsculas, por convenção) no topo do arquivo. Para trocar de API ou de tempo limite, você muda em
+um só lugar.
+class ErroDeApi(Exception)
+	cria um erro seu. Assim, quem usa suas funções captura só ErroDeApi, sem precisar conhecer os detalhes do requests.
+requisitar(metodo, caminho, **kwargs)
+	recebe o método ("GET", "POST"...), o caminho ("/posts/1") e, em **kwargs, qualquer coisa extra (params=, json=,
+headers=), que é repassada ao requests.
+requests.request(metodo, url, ...)
+	faz a chamada com o método escolhido. É o mesmo que requests.get ou requests.post, mas com o método como
+argumento.
+if resposta.status_code == 204
+	remete à etapa 8. Com 204 não há corpo, e chamar .json() daria erro. Aqui devolvemos None.
+Repare como cada função ficou curta e com um objetivo claro. Todo o trabalho pesado (timeout, erros, JSON) está escondido em requisitar. As funções são as etapas que você já fez: o GET da etapa 3, o filtro da 4, o POST da 5 e a paginação da 14.
+Um detalhe em listar_posts: o user_id=None torna o filtro opcional. Sem argumento, lista todos os posts. Com user_id=2, só os do usuário 2.
+Rodar o programa, o resultado esperado é:
+Título: sunt aut facere repellat provident occaecati excepturi optio reprehenderit
+Posts do usuário 2: 10
+Criado com id: 101
+Total de posts: 100
+Erro: A API respondeu com erro: 404 Client Error: Not Found for url: https://jsonplaceholder.typicode.com/posts/9999
+A última linha é proposital: o buscar_post(9999) falha, a função requisitar transforma o erro em ErroDeApi, e o except no final mostra a mensagem. O código para ali de forma controlada, sem aquele erro vermelho gigante.
+Sobre o if __name__ == "__main__": esse bloco só roda quando você executa este arquivo diretamente. Se outro arquivo fizer import cliente_api para usar as funções, esse bloco de teste é ignorado. É a prática padrão em Python para separar "funções reutilizáveis" de "código de teste".
